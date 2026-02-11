@@ -38,6 +38,10 @@ local function html_to_markdown(html)
   text = text:gsub("<ol[^>]*>", "\n")
   text = text:gsub("</ol>", "\n")
 
+  -- 图片：转为 markdown 图片语法
+  text = text:gsub('<img[^>]-src="([^"]+)"[^>]*/>', '![img](%1)\n\n')
+  text = text:gsub('<img[^>]-src="([^"]+)"[^>]*>', '![img](%1)\n\n')
+
   -- 强调
   text = text:gsub("<strong>(.-)</strong>", "**%1**")
   text = text:gsub("<b>(.-)</b>", "**%1**")
@@ -207,7 +211,7 @@ function M.toggle()
   vim.notify("LeetCode: 正在加载题目描述...", vim.log.levels.INFO)
 
   -- 通过 ID 查找 slug，再获取详情
-  api.fetch_problems(function(err, problems)
+  api.fetch_problems_cached(function(err, problems)
     if err then
       vim.notify("LeetCode: 获取题目列表失败 - " .. err, vim.log.levels.ERROR)
       return
