@@ -106,37 +106,44 @@ function M.check_auth(callback)
   end)
 end
 
---- 获取题目列表 (全量)
+--- 获取题目列表 (全量，通过 GraphQL 获取中文标题)
 function M.fetch_problems(callback)
-  request({
-    url = config.base_url() .. "/api/problems/algorithms/",
-    on_done = function(err, data)
-      if err then
-        callback(err)
-        return
-      end
-      if not data or not data.stat_status_pairs then
-        callback("Invalid response")
-        return
-      end
-      local problems = {}
-      for _, pair in ipairs(data.stat_status_pairs) do
-        local stat = pair.stat
+  M.graphql([[
+    query allQuestions {
+      allQuestionsBeta {
+        questionId
+        questionFrontendId
+        title
+        translatedTitle
+        titleSlug
+        difficulty
+      }
+    }
+  ]], nil, function(err, data)
+    if err then
+      callback(err)
+      return
+    end
+    local questions = data and data.allQuestionsBeta
+    if not questions then
+      callback("Invalid response: no allQuestionsBeta")
+      return
+    end
+    local problems = {}
+    for _, q in ipairs(questions) do
+      local id = tonumber(q.questionFrontendId)
+      if id then
         table.insert(problems, {
-          id = tonumber(stat.frontend_question_id) or 0,
-          title = stat.question__title,
-          slug = stat.question__title_slug,
-          difficulty = ({ [1] = "Easy", [2] = "Medium", [3] = "Hard" })[pair.difficulty.level] or "Unknown",
-          paid_only = pair.paid_only,
-          status = pair.status, -- "ac", "notac", nil
-          ac_rate = stat.total_acs > 0 and math.floor(stat.total_acs / stat.total_submitted * 100) or 0,
+          id = id,
+          title = (config.options.cn and q.translatedTitle or q.title) or q.title,
+          slug = q.titleSlug,
+          difficulty = q.difficulty or "Unknown",
         })
       end
-      -- 按 ID 排序
-      table.sort(problems, function(a, b) return a.id < b.id end)
-      callback(nil, problems)
-    end,
-  })
+    end
+    table.sort(problems, function(a, b) return a.id < b.id end)
+    callback(nil, problems)
+  end)
 end
 
 --- 读取本地文件缓存

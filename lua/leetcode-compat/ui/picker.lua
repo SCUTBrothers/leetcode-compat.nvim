@@ -172,7 +172,7 @@ function M.open()
       preview = { hidden = "hidden" },
     },
     fzf_opts = {
-      ["--header"] = "ctrl-a: 搜索全部远程题目",
+      ["--header"] = "alt-a: 搜索全部远程题目",
     },
     actions = {
       ["default"] = function(selected)
@@ -182,7 +182,7 @@ function M.open()
           open_local(id, local_files)
         end
       end,
-      ["ctrl-a"] = function()
+      ["alt-a"] = function()
         open_remote_fzf(local_files)
       end,
     },
