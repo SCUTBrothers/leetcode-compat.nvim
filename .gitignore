@@ -1,0 +1,18 @@
+# Neovim swap / backup
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# Cookie（包含敏感信息，不应提交）
+cookie
+
+# 编辑器配置
+.vscode/
+.idea/
+
+# 临时文件
+*.log
+tmp/
