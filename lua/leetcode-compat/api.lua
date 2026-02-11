@@ -3,6 +3,17 @@ local M = {}
 local config = require("leetcode-compat.config")
 local auth = require("leetcode-compat.auth")
 
+--- 内存缓存
+local _problems_cache = nil
+local _cache_ts = 0
+local CACHE_TTL = 7 * 24 * 3600 -- 7 天（秒）
+
+--- 缓存文件路径
+local function cache_path()
+  local cookie_dir = vim.fn.fnamemodify(config.options.cookie_path, ":h")
+  return cookie_dir .. "/problemlist.json"
+end
+
 --- 构建 HTTP 请求头
 local function headers()
   local cookie = auth.get_cookie() or ""
@@ -112,7 +123,7 @@ function M.fetch_problems(callback)
       for _, pair in ipairs(data.stat_status_pairs) do
         local stat = pair.stat
         table.insert(problems, {
-          id = stat.frontend_question_id,
+          id = tonumber(stat.frontend_question_id) or 0,
           title = stat.question__title,
           slug = stat.question__title_slug,
           difficulty = ({ [1] = "Easy", [2] = "Medium", [3] = "Hard" })[pair.difficulty.level] or "Unknown",
@@ -126,6 +137,78 @@ function M.fetch_problems(callback)
       callback(nil, problems)
     end,
   })
+end
+
+--- 读取本地文件缓存
+---@return table|nil problems, number|nil timestamp
+local function read_cache()
+  local path = cache_path()
+  if vim.fn.filereadable(path) ~= 1 then return nil, 0 end
+  local ok, content = pcall(vim.fn.readfile, path)
+  if not ok or #content == 0 then return nil, 0 end
+  local parsed_ok, data = pcall(vim.json.decode, table.concat(content, "\n"))
+  if not parsed_ok or type(data) ~= "table" then return nil, 0 end
+  return data.problems, data.timestamp or 0
+end
+
+--- 写入本地文件缓存
+---@param problems table
+local function write_cache(problems)
+  local path = cache_path()
+  local dir = vim.fn.fnamemodify(path, ":h")
+  vim.fn.mkdir(dir, "p")
+  local data = vim.json.encode({ timestamp = os.time(), problems = problems })
+  vim.fn.writefile({ data }, path)
+end
+
+--- 获取题目列表（带缓存）
+--- 优先返回内存/文件缓存，后台刷新过期缓存
+---@param callback fun(err?: string, problems?: table)
+function M.fetch_problems_cached(callback)
+  local now = os.time()
+
+  -- 1. 内存缓存有效
+  if _problems_cache and (now - _cache_ts) < CACHE_TTL then
+    callback(nil, _problems_cache)
+    return
+  end
+
+  -- 2. 尝试文件缓存
+  local cached, ts = read_cache()
+  if cached and (now - ts) < CACHE_TTL then
+    _problems_cache = cached
+    _cache_ts = ts
+    callback(nil, cached)
+    return
+  end
+
+  -- 3. 缓存过期但存在：先返回旧缓存，后台刷新
+  if cached then
+    _problems_cache = cached
+    _cache_ts = ts
+    callback(nil, cached)
+    -- 后台刷新
+    M.fetch_problems(function(err, problems)
+      if not err and problems then
+        _problems_cache = problems
+        _cache_ts = os.time()
+        write_cache(problems)
+      end
+    end)
+    return
+  end
+
+  -- 4. 无缓存：网络请求
+  M.fetch_problems(function(err, problems)
+    if err then
+      callback(err)
+      return
+    end
+    _problems_cache = problems
+    _cache_ts = os.time()
+    write_cache(problems)
+    callback(nil, problems)
+  end)
 end
 
 --- 获取题目详情 (GraphQL)

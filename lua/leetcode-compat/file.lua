@@ -22,6 +22,21 @@ function M.parse_id_from_filename(filename)
   return id and tonumber(id)
 end
 
+--- 解析文件名获取题目 ID 和标题
+--- 文件名格式: {id}.{title}.{ext} 例如 "1.两数之和.js"
+---@param filename string
+---@return number|nil id, string|nil title
+function M.parse_filename(filename)
+  local basename = vim.fn.fnamemodify(filename, ":t:r") -- 去掉路径和扩展名
+  local id_str, title = basename:match("^(%d+)%.(.+)$")
+  if id_str then
+    return tonumber(id_str), title
+  end
+  -- fallback: 只有 id
+  local id = basename:match("^(%d+)")
+  return id and tonumber(id), nil
+end
+
 --- 解析文件内容获取元数据
 ---@param filepath string
 ---@return table|nil metadata {id, lang, app, title}
@@ -88,16 +103,22 @@ function M.scan_workspace()
     local meta = M.parse_metadata(filepath)
     if meta then
       meta.filepath = filepath
+      -- 补充从文件名解析的标题（如果 metadata 中没有）
+      if not meta.title then
+        local _, title = M.parse_filename(filepath)
+        meta.title = title
+      end
       table.insert(files, meta)
     else
-      -- 仅从文件名解析
-      local id = M.parse_id_from_filename(filepath)
+      -- 从文件名解析 ID 和标题
+      local id, title = M.parse_filename(filepath)
       if id then
         local ext = vim.fn.fnamemodify(filepath, ":e")
         table.insert(files, {
           id = id,
           filepath = filepath,
           lang = M.ext_to_lang(ext),
+          title = title,
         })
       end
     end
