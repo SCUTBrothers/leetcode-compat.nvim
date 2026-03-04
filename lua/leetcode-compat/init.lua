@@ -19,6 +19,7 @@ function M._setup_commands()
   cmd("LCDesc", function() require("leetcode-compat.ui.description").toggle() end, { desc = "Toggle problem description" })
   cmd("LCAuth", function() require("leetcode-compat.auth").prompt_cookie() end, { desc = "Set LeetCode cookie" })
   cmd("LCInfo", function() require("leetcode-compat.ui.info").show() end, { desc = "Show problem info" })
+  cmd("LCPractice", function(o) require("leetcode-compat.ui.picker").practice_by_id(tonumber(o.args)) end, { nargs = 1, desc = "Practice problem by ID (reset to default template)" })
 end
 
 return M

@@ -318,7 +318,7 @@ function M._poll_result(id, callback, attempts)
         end
         if data and data.state == "SUCCESS" then
           callback(nil, data)
-        elseif data and data.state == "PENDING" or data.state == "STARTED" then
+        elseif data and (data.state == "PENDING" or data.state == "STARTED") then
           M._poll_result(id, callback, attempts + 1)
         else
           callback(nil, data)

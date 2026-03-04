@@ -278,4 +278,32 @@ function M.get_or_create(question, lang, callback)
   callback(filepath)
 end
 
+--- 创建全新的题目文件（练习模式：无论本地是否存在都用远端模板覆盖）
+---@param question table 题目详情
+---@param lang string 语言
+---@param callback fun(filepath: string)
+function M.create_fresh(question, lang, callback)
+  local dir = config.options.workspace
+  vim.fn.mkdir(dir, "p")
+
+  local id = tonumber(question.questionFrontendId)
+  local content = M.generate_file_content(question, lang)
+
+  -- 查找已有文件
+  local existing = M.scan_workspace()
+  for _, f in ipairs(existing) do
+    if f.id == id then
+      vim.fn.writefile(vim.split(content, "\n"), f.filepath)
+      callback(f.filepath)
+      return
+    end
+  end
+
+  -- 本地无文件，创建新文件
+  local filename = M.build_filename(question, lang)
+  local filepath = dir .. "/" .. filename
+  vim.fn.writefile(vim.split(content, "\n"), filepath)
+  callback(filepath)
+end
+
 return M

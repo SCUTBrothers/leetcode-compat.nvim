@@ -52,13 +52,13 @@ local function show_result(result, is_submit)
   if result.status_runtime then
     table.insert(lines, "- Runtime: " .. result.status_runtime)
   end
-  if result.runtime_percentile then
+  if result.runtime_percentile and type(result.runtime_percentile) == "number" then
     table.insert(lines, string.format("- Beats: %.1f%%", result.runtime_percentile))
   end
   if result.status_memory then
     table.insert(lines, "- Memory: " .. result.status_memory)
   end
-  if result.memory_percentile then
+  if result.memory_percentile and type(result.memory_percentile) == "number" then
     table.insert(lines, string.format("- Memory Beats: %.1f%%", result.memory_percentile))
   end
 
@@ -103,12 +103,19 @@ local function show_result(result, is_submit)
 
   -- 用 floating window 显示结果
   local buf = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  -- 展开包含换行符的行
+  local flat_lines = {}
+  for _, line in ipairs(lines) do
+    for _, sub in ipairs(vim.split(line, "\n")) do
+      table.insert(flat_lines, sub)
+    end
+  end
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, flat_lines)
   vim.bo[buf].filetype = "markdown"
   vim.bo[buf].bufhidden = "wipe"
 
   local width = math.min(80, vim.o.columns - 4)
-  local height = math.min(#lines + 2, vim.o.lines - 4)
+  local height = math.min(#flat_lines + 2, vim.o.lines - 4)
   vim.api.nvim_open_win(buf, true, {
     relative = "editor",
     width = width,
@@ -129,7 +136,7 @@ end
 ---@param id number
 ---@param callback fun(slug: string, question: table)
 local function resolve_slug_and_question(id, callback)
-  api.fetch_problems(function(err, problems)
+  api.fetch_problems_cached(function(err, problems)
     if err then
       vim.notify("LeetCode: 获取题目列表失败 - " .. err, vim.log.levels.ERROR)
       return

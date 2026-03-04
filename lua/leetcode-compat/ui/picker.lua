@@ -72,6 +72,50 @@ local function fetch_and_create(id, problems)
   end)
 end
 
+--- 远端获取 + create_fresh 的练习流程
+---@param id number
+---@param problems? table[]
+local function fetch_and_practice(id, problems)
+  local function do_fetch(slug)
+    vim.notify("LeetCode: 正在获取题目详情（练习模式）...", vim.log.levels.INFO)
+    api.fetch_question(slug, function(err, question)
+      if err then
+        vim.notify("LeetCode: 获取题目详情失败 - " .. err, vim.log.levels.ERROR)
+        return
+      end
+      file.create_fresh(question, config.options.lang, function(filepath)
+        vim.cmd("edit " .. vim.fn.fnameescape(filepath))
+        vim.notify("LeetCode: 已重置为默认模板 #" .. id, vim.log.levels.INFO)
+      end)
+    end)
+  end
+
+  if problems then
+    for _, p in ipairs(problems) do
+      if p.id == id then
+        do_fetch(p.slug)
+        return
+      end
+    end
+    vim.notify("LeetCode: 未找到题目 #" .. id, vim.log.levels.ERROR)
+    return
+  end
+
+  api.fetch_problems_cached(function(err, prob_list)
+    if err then
+      vim.notify("LeetCode: 获取题目列表失败 - " .. err, vim.log.levels.ERROR)
+      return
+    end
+    for _, p in ipairs(prob_list) do
+      if p.id == id then
+        do_fetch(p.slug)
+        return
+      end
+    end
+    vim.notify("LeetCode: 未找到题目 #" .. id, vim.log.levels.ERROR)
+  end)
+end
+
 --- 从 fzf 条目行中提取 ID
 ---@param line string
 ---@return number|nil
@@ -132,6 +176,9 @@ function M.open()
         width = 0.8,
         preview = { hidden = "hidden" },
       },
+      fzf_opts = {
+        ["--header"] = "enter: 打开 | ctrl-p: 练习模式（重置为默认代码）",
+      },
       actions = {
         ["default"] = function(selected)
           if not selected or #selected == 0 then return end
@@ -141,9 +188,25 @@ function M.open()
             fetch_and_create(id, problems)
           end
         end,
+        ["ctrl-p"] = function(selected)
+          if not selected or #selected == 0 then return end
+          local id = parse_id_from_entry(selected[1])
+          if not id then return end
+          fetch_and_practice(id, problems)
+        end,
       },
     })
   end)
+end
+
+--- 通过 ID 以练习模式打开题目（重置为默认代码模板）
+---@param id number
+function M.practice_by_id(id)
+  if not id then
+    vim.notify("LeetCode: 请提供题目 ID", vim.log.levels.WARN)
+    return
+  end
+  fetch_and_practice(id)
 end
 
 --- 直接通过 ID 打开题目
