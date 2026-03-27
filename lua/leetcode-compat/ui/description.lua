@@ -11,44 +11,60 @@ local state = {
 }
 
 --- 简单的 HTML 转 markdown
+--- 使用多遍扫描确保嵌套标签和多行内容正确处理
 ---@param html string
 ---@return string
 local function html_to_markdown(html)
   if not html or html == "" then return "" end
   local text = html
 
-  -- 块级元素：先处理再去标签
-  text = text:gsub("<h1[^>]*>(.-)</h1>", "# %1\n\n")
-  text = text:gsub("<h2[^>]*>(.-)</h2>", "## %1\n\n")
-  text = text:gsub("<h3[^>]*>(.-)</h3>", "### %1\n\n")
-  text = text:gsub("<p[^>]*>(.-)</p>", "%1\n\n")
-  text = text:gsub("<br%s*/?>", "\n")
+  -- 统一换行符
+  text = text:gsub("\r\n", "\n")
+  text = text:gsub("\r", "\n")
 
-  -- 代码块
-  text = text:gsub("<pre[^>]*>(.-)</pre>", function(code)
+  -- 代码块（pre 可能包含多行和嵌套标签，必须最先处理）
+  text = text:gsub("<pre>(.-)</pre>", function(code)
     code = code:gsub("<[^>]+>", "")
-    return "```\n" .. code .. "\n```\n\n"
+    -- 先解码实体再包裹
+    code = code:gsub("&lt;", "<"):gsub("&gt;", ">"):gsub("&amp;", "&"):gsub("&quot;", '"')
+    return "\n```\n" .. code .. "\n```\n"
   end)
-  text = text:gsub("<code>(.-)</code>", "`%1`")
 
-  -- 列表
-  text = text:gsub("<li[^>]*>(.-)</li>", "- %1\n")
-  text = text:gsub("<ul[^>]*>", "\n")
-  text = text:gsub("</ul>", "\n")
-  text = text:gsub("<ol[^>]*>", "\n")
-  text = text:gsub("</ol>", "\n")
+  -- 内联代码（处理跨行和嵌套实体）
+  text = text:gsub("<code>(.-)</code>", function(code)
+    code = code:gsub("<[^>]+>", "")
+    return "`" .. code .. "`"
+  end)
 
-  -- 图片：转为 markdown 图片语法
-  text = text:gsub('<img[^>]-src="([^"]+)"[^>]*/>', '![img](%1)\n\n')
-  text = text:gsub('<img[^>]-src="([^"]+)"[^>]*>', '![img](%1)\n\n')
+  -- 图片
+  text = text:gsub('<img[^>]-src="([^"]+)"[^>]-/?>', '![img](%1)')
 
-  -- 强调
+  -- 强调（在去标签之前处理）
   text = text:gsub("<strong>(.-)</strong>", "**%1**")
   text = text:gsub("<b>(.-)</b>", "**%1**")
   text = text:gsub("<em>(.-)</em>", "*%1*")
   text = text:gsub("<i>(.-)</i>", "*%1*")
   text = text:gsub("<sup>(.-)</sup>", "^%1")
   text = text:gsub("<sub>(.-)</sub>", "_%1")
+
+  -- 块级元素转换为换行标记
+  text = text:gsub("<h1[^>]*>(.-)</h1>", "\n# %1\n\n")
+  text = text:gsub("<h2[^>]*>(.-)</h2>", "\n## %1\n\n")
+  text = text:gsub("<h3[^>]*>(.-)</h3>", "\n### %1\n\n")
+  text = text:gsub("<br%s*/?>", "\n")
+
+  -- 列表项
+  text = text:gsub("<li[^>]*>(.-)</li>", "- %1\n")
+  text = text:gsub("<ul[^>]*>", "\n")
+  text = text:gsub("</ul>", "\n")
+  text = text:gsub("<ol[^>]*>", "\n")
+  text = text:gsub("</ol>", "\n")
+
+  -- p 和 div 作为段落分隔（用开闭标签各自替换，避免跨行匹配失败）
+  text = text:gsub("<p[^>]*>", "")
+  text = text:gsub("</p>", "\n\n")
+  text = text:gsub("<div[^>]*>", "")
+  text = text:gsub("</div>", "\n")
 
   -- HTML 实体
   text = text:gsub("&nbsp;", " ")
@@ -59,6 +75,8 @@ local function html_to_markdown(html)
   text = text:gsub("&#39;", "'")
   text = text:gsub("&le;", "<=")
   text = text:gsub("&ge;", ">=")
+  text = text:gsub("&times;", "×")
+  text = text:gsub("&minus;", "-")
   text = text:gsub("&#(%d+);", function(n)
     local num = tonumber(n)
     if num and num < 128 then return string.char(num) end
@@ -68,7 +86,8 @@ local function html_to_markdown(html)
   -- 去掉剩余 HTML 标签
   text = text:gsub("<[^>]+>", "")
 
-  -- 清理多余空行
+  -- 清理多余空行和空白
+  text = text:gsub("[ \t]+\n", "\n")
   text = text:gsub("\n\n\n+", "\n\n")
   text = text:gsub("^\n+", "")
   text = text:gsub("\n+$", "")
@@ -177,6 +196,7 @@ function M.show(question)
   vim.wo[win].wrap = true
   vim.wo[win].linebreak = true
   vim.wo[win].cursorline = false
+  vim.wo[win].conceallevel = 0
 
   -- 按 q 关闭
   vim.keymap.set("n", "q", function() close() end, { buffer = buf, nowait = true })

@@ -101,6 +101,43 @@ local function show_result(result, is_submit)
     end
   end
 
+  -- 提交失败详情（submit 模式，非 Accepted）
+  if is_submit and result.status_msg ~= "Accepted" then
+    -- 通过数/总数
+    if result.total_correct and result.total_testcases then
+      table.insert(lines, string.format("- Passed: %s / %s", result.total_correct, result.total_testcases))
+    end
+    -- 失败的测试用例
+    if result.last_testcase or result.input_formatted or result.expected_output or result.code_output then
+      table.insert(lines, "")
+      table.insert(lines, "## Failed Test Case")
+      if result.last_testcase then
+        table.insert(lines, "**Input:**")
+        table.insert(lines, "```")
+        table.insert(lines, result.last_testcase)
+        table.insert(lines, "```")
+      end
+      if result.expected_output then
+        table.insert(lines, "**Expected:**")
+        table.insert(lines, "```")
+        table.insert(lines, result.expected_output)
+        table.insert(lines, "```")
+      end
+      if result.code_output then
+        table.insert(lines, "**Output:**")
+        table.insert(lines, "```")
+        table.insert(lines, result.code_output)
+        table.insert(lines, "```")
+      end
+      if result.std_output then
+        table.insert(lines, "**Stdout:**")
+        table.insert(lines, "```")
+        table.insert(lines, result.std_output)
+        table.insert(lines, "```")
+      end
+    end
+  end
+
   -- 用 floating window 显示结果
   local buf = vim.api.nvim_create_buf(false, true)
   -- 展开包含换行符的行
