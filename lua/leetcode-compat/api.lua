@@ -218,6 +218,80 @@ function M.fetch_problems_cached(callback)
   end)
 end
 
+--- 获取每日一题
+function M.fetch_daily(callback)
+  local is_cn = config.options.cn
+  local query, extract
+
+  if is_cn then
+    query = [[
+      query questionOfToday {
+        todayRecord {
+          date
+          question {
+            questionFrontendId
+            titleSlug
+            translatedTitle
+            title
+            difficulty
+          }
+        }
+      }
+    ]]
+    extract = function(data)
+      local records = data and data.todayRecord
+      if not records or #records == 0 then return nil end
+      local q = records[1].question
+      return {
+        id = tonumber(q.questionFrontendId),
+        slug = q.titleSlug,
+        title = q.translatedTitle or q.title,
+        difficulty = q.difficulty,
+        date = records[1].date,
+      }
+    end
+  else
+    query = [[
+      query questionOfToday {
+        activeDailyCodingChallengeQuestion {
+          date
+          question {
+            questionFrontendId
+            titleSlug
+            title
+            difficulty
+          }
+        }
+      }
+    ]]
+    extract = function(data)
+      local rec = data and data.activeDailyCodingChallengeQuestion
+      if not rec then return nil end
+      local q = rec.question
+      return {
+        id = tonumber(q.questionFrontendId),
+        slug = q.titleSlug,
+        title = q.title,
+        difficulty = q.difficulty,
+        date = rec.date,
+      }
+    end
+  end
+
+  M.graphql(query, nil, function(err, data)
+    if err then
+      callback(err)
+      return
+    end
+    local daily = extract(data)
+    if not daily then
+      callback("Failed to parse daily question")
+      return
+    end
+    callback(nil, daily)
+  end)
+end
+
 --- 获取题目详情 (GraphQL)
 function M.fetch_question(slug, callback)
   M.graphql([[

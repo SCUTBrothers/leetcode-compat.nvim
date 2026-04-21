@@ -223,4 +223,49 @@ function M.open_by_id(id)
   fetch_and_create(id)
 end
 
+--- 打开每日一题
+function M.open_daily()
+  vim.notify("LeetCode: 正在获取每日一题...", vim.log.levels.INFO)
+  api.fetch_daily(function(err, daily)
+    if err then
+      vim.notify("LeetCode: 获取每日一题失败 - " .. err, vim.log.levels.ERROR)
+      return
+    end
+    vim.notify(string.format("LeetCode: 每日一题 #%d %s (%s)", daily.id, daily.title, daily.difficulty), vim.log.levels.INFO)
+    local local_files = file.scan_workspace()
+    if open_local(daily.id, local_files) then return end
+    fetch_and_create(daily.id, nil)
+  end)
+end
+
+--- 随机打开一道题目
+---@param difficulty? string "Easy"|"Medium"|"Hard"
+function M.open_random(difficulty)
+  api.fetch_problems_cached(function(err, problems)
+    if err then
+      vim.notify("LeetCode: 获取题目列表失败 - " .. err, vim.log.levels.ERROR)
+      return
+    end
+    local pool = problems
+    if difficulty then
+      pool = {}
+      for _, p in ipairs(problems) do
+        if p.difficulty == difficulty then
+          table.insert(pool, p)
+        end
+      end
+    end
+    if #pool == 0 then
+      vim.notify("LeetCode: 没有符合条件的题目", vim.log.levels.WARN)
+      return
+    end
+    math.randomseed(os.time())
+    local chosen = pool[math.random(#pool)]
+    vim.notify(string.format("LeetCode: 随机题目 #%d %s (%s)", chosen.id, chosen.title, chosen.difficulty), vim.log.levels.INFO)
+    local local_files = file.scan_workspace()
+    if open_local(chosen.id, local_files) then return end
+    fetch_and_create(chosen.id, problems)
+  end)
+end
+
 return M
