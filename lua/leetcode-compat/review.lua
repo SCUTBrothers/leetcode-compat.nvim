@@ -203,7 +203,7 @@ function M.show_review_list()
         preview = { hidden = "hidden" },
       },
       fzf_opts = {
-        ["--header"] = string.format("今日待复习: %d 题 | enter: 打开 | ctrl-1/2/3/4: Again/Hard/Good/Easy", #due_cards),
+        ["--header"] = string.format("今日待复习: %d 题 | enter: 打开", #due_cards),
       },
       actions = {
         ["default"] = function(selected)
@@ -212,26 +212,6 @@ function M.show_review_list()
           if card then
             require("leetcode-compat.ui.picker").open_by_id(card.id)
           end
-        end,
-        ["ctrl-1"] = function(selected)
-          if not selected or #selected == 0 then return end
-          local card = card_by_line[selected[1]]
-          if card then M.rate_card(card.id, fsrs.Again) end
-        end,
-        ["ctrl-2"] = function(selected)
-          if not selected or #selected == 0 then return end
-          local card = card_by_line[selected[1]]
-          if card then M.rate_card(card.id, fsrs.Hard) end
-        end,
-        ["ctrl-3"] = function(selected)
-          if not selected or #selected == 0 then return end
-          local card = card_by_line[selected[1]]
-          if card then M.rate_card(card.id, fsrs.Good) end
-        end,
-        ["ctrl-4"] = function(selected)
-          if not selected or #selected == 0 then return end
-          local card = card_by_line[selected[1]]
-          if card then M.rate_card(card.id, fsrs.Easy) end
         end,
       },
     })
