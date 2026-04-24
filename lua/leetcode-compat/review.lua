@@ -210,7 +210,7 @@ function M.show_review_list()
           if not selected or #selected == 0 then return end
           local card = card_by_line[selected[1]]
           if card then
-            require("leetcode-compat.ui.picker").open_by_id(card.id)
+            require("leetcode-compat.ui.picker").practice_by_id(card.id)
           end
         end,
       },
