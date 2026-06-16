@@ -6,6 +6,7 @@ local auth = require("leetcode-compat.auth")
 --- 内存缓存
 local _problems_cache = nil
 local _cache_ts = 0
+local _problemset_cache = {}
 local CACHE_TTL = 7 * 24 * 3600 -- 7 天（秒）
 
 --- 缓存文件路径
@@ -305,7 +306,7 @@ function M.fetch_question(slug, callback)
         content
         translatedContent
         difficulty
-        topicTags { name translatedName }
+        topicTags { name slug translatedName }
         codeSnippets { lang langSlug code }
         exampleTestcaseList
         sampleTestCase
@@ -320,6 +321,130 @@ function M.fetch_question(slug, callback)
       return
     end
     callback(nil, data and data.question)
+  end)
+end
+
+--- 获取题库轻量列表，可按标签过滤
+---@param opts? {tag?: string, limit?: number}
+---@param callback fun(err?: string, problems?: table[])
+function M.fetch_problemset(opts, callback)
+  opts = opts or {}
+  local tag = opts.tag
+  local limit = opts.limit or 100
+  local cache_key = tag or "__all__"
+  local cached = _problemset_cache[cache_key]
+  if cached and (os.time() - cached.ts) < CACHE_TTL then
+    callback(nil, cached.problems)
+    return
+  end
+
+  local query = [[
+    query problemsetQuestionList($categorySlug: String, $limit: Int, $skip: Int, $filters: QuestionListFilterInput) {
+      problemsetQuestionList(categorySlug: $categorySlug, limit: $limit, skip: $skip, filters: $filters) {
+        total
+        questions {
+          frontendQuestionId
+          title
+          titleCn
+          titleSlug
+          difficulty
+          paidOnly
+          status
+          topicTags { name slug nameTranslated }
+        }
+      }
+    }
+  ]]
+
+  local all = {}
+  local function fetch_page(skip)
+    local filters = {}
+    if tag then filters.tags = { tag } end
+    M.graphql(query, {
+      categorySlug = "all-code-essentials",
+      limit = limit,
+      skip = skip,
+      filters = filters,
+    }, function(err, data)
+      if err then
+        callback(err)
+        return
+      end
+      local list = data and data.problemsetQuestionList
+      if not list then
+        callback("Invalid response: no problemsetQuestionList")
+        return
+      end
+      for _, q in ipairs(list.questions or {}) do
+        local id = tonumber(q.frontendQuestionId)
+        if id then
+          table.insert(all, {
+            id = id,
+            title = (config.options.cn and q.titleCn or q.title) or q.title,
+            slug = q.titleSlug,
+            difficulty = q.difficulty or "Unknown",
+            paid_only = q.paidOnly,
+            status = q.status,
+            topicTags = q.topicTags or {},
+            domain = tag == "database" and "database" or nil,
+          })
+        end
+      end
+      if #all < tonumber(list.total or 0) then
+        fetch_page(skip + limit)
+      else
+        table.sort(all, function(a, b) return a.id < b.id end)
+        _problemset_cache[cache_key] = { ts = os.time(), problems = all }
+        callback(nil, all)
+      end
+    end)
+  end
+
+  fetch_page(0)
+end
+
+--- 获取学习计划详情
+---@param slug string
+---@param callback fun(err?: string, plan?: table)
+function M.fetch_study_plan(slug, callback)
+  M.graphql([[
+    query studyPlanDetail($slug: String!) {
+      studyPlanV2Detail(planSlug: $slug) {
+        slug
+        name
+        highlight
+        description
+        premiumOnly
+        defaultLanguage
+        planSubGroups {
+          slug
+          name
+          premiumOnly
+          questionNum
+          questions {
+            translatedTitle
+            titleSlug
+            title
+            questionFrontendId
+            paidOnly
+            id
+            difficulty
+            status
+            topicTags {
+              slug
+              nameTranslated
+              name
+            }
+          }
+        }
+      }
+    }
+  ]], { slug = slug }, function(err, data)
+    if err then
+      callback(err)
+      return
+    end
+    callback(nil, data and data.studyPlanV2Detail)
   end)
 end
 

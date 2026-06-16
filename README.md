@@ -10,6 +10,8 @@ A Neovim plugin for LeetCode that is **fully compatible with the VSCode LeetCode
 - **Problem Browser** — Browse and search problems with [fzf-lua](https://github.com/ibhagwan/fzf-lua) integration
 - **Run & Submit** — Run test cases and submit solutions without leaving Neovim
 - **Problem Description** — View problem descriptions in a split window
+- **SQL Practice** — Open database problems as MySQL or PostgreSQL solution files
+- **Study Plans** — Browse built-in study plans such as SQL 50 directly from Neovim
 - **Dual Site Support** — Works with both `leetcode.cn` and `leetcode.com`
 
 ## Requirements
@@ -26,9 +28,16 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 {
   "your-username/leetcode-compat.nvim",
   dependencies = { "ibhagwan/fzf-lua" },
-  cmd = { "LCList", "LCOpen", "LCRun", "LCSubmit", "LCDesc", "LCAuth", "LCInfo" },
+  cmd = {
+    "LCList", "LCOpen", "LCPractice", "LCRun", "LCSubmit", "LCDesc", "LCAuth", "LCInfo",
+    "LCLang", "LCPlan", "LCPlanList", "LCPlanNext", "LCPlanRefresh", "LCPlanProgress",
+  },
   keys = {
     { "<leader>ll", "<cmd>LCList<cr>",   desc = "LeetCode: Browse problems" },
+    { "<leader>lp", "<cmd>LCPlan<cr>",   desc = "LeetCode: Study plans" },
+    { "<leader>lq", "<cmd>LCPlan sql-free-50<cr>", desc = "LeetCode: SQL 50" },
+    { "<leader>ln", "<cmd>LCPlanNext sql-free-50<cr>", desc = "LeetCode: Next SQL" },
+    { "<leader>ly", "<cmd>LCLang<cr>",   desc = "LeetCode: Switch language" },
     { "<leader>lr", "<cmd>LCRun<cr>",    desc = "LeetCode: Run test cases" },
     { "<leader>ls", "<cmd>LCSubmit<cr>", desc = "LeetCode: Submit solution" },
     { "<leader>ld", "<cmd>LCDesc<cr>",   desc = "LeetCode: Problem description" },
@@ -59,8 +68,14 @@ All options with their default values:
   -- Compatible with VSCode LeetCode extension's workspace
   workspace = vim.fn.expand("~/leetcode"),
 
-  -- Default language for new files
+  -- Backward-compatible default algorithm language
   lang = "javascript",
+
+  -- Domain-specific default language for new files
+  default_lang = {
+    algorithm = "javascript",
+    database = "mysql",
+  },
 
   -- Use leetcode.cn (China) instead of leetcode.com
   cn = true,
@@ -69,8 +84,14 @@ All options with their default values:
   cookie_path = vim.fn.stdpath("data") .. "/leetcode-compat/cookie",
 
   -- File naming pattern
-  -- Available variables: ${id}, ${slug}, ${title}, ${cn_title}, ${ext}
+  -- Available variables: ${id}, ${slug}, ${title}, ${cn_title}, ${lang}, ${ext}
   file_pattern = "${id}.${cn_title}.${ext}",
+
+  -- Use language marker for SQL so MySQL/PostgreSQL files can coexist
+  file_pattern_by_domain = {
+    algorithm = "${id}.${cn_title}.${ext}",
+    database = "${id}.${cn_title}.${lang}.${ext}",
+  },
 
   -- Language to file extension mapping
   lang_ext = {
@@ -82,6 +103,8 @@ All options with their default values:
     c = "c",
     golang = "go",
     rust = "rs",
+    mysql = "sql",
+    postgresql = "sql",
     -- ... and more
   },
 
@@ -98,13 +121,91 @@ All options with their default values:
 
 | Command       | Description                          |
 | ------------- | ------------------------------------ |
-| `:LCList`     | Browse problems (opens fzf picker)   |
-| `:LCOpen {n}` | Open problem by number (e.g. `:LCOpen 1`) |
+| `:LCList [algorithm\|database\|all]` | Browse problems |
+| `:LCOpen {id_or_slug} [lang]` | Open problem by number or slug |
+| `:LCPractice {id_or_slug} [lang]` | Reset/open a problem from its default template |
+| `:LCLang [lang]` | Open current problem in another language or set session default |
 | `:LCRun`      | Run test cases for current file      |
 | `:LCSubmit`   | Submit solution for current file     |
 | `:LCDesc`     | Toggle problem description window    |
 | `:LCAuth`     | Set LeetCode authentication cookie   |
 | `:LCInfo`     | Show current problem info            |
+| `:LCPlan [slug] [lang]` | Browse a study plan, e.g. `:LCPlan sql-free-50` |
+| `:LCPlanNext [slug] [lang]` | Open the first unsolved problem in a study plan |
+| `:LCPlanRefresh [slug]` | Refresh a study plan from LeetCode |
+| `:LCPlanProgress [slug]` | Show study plan progress |
+
+## JavaScript and SQL Workflows
+
+Algorithm problems default to JavaScript:
+
+```vim
+:LCOpen 1
+```
+
+Database problems default to MySQL:
+
+```vim
+:LCOpen 1757
+```
+
+Open a SQL problem in PostgreSQL explicitly:
+
+```vim
+:LCOpen 1757 postgresql
+```
+
+MySQL and PostgreSQL files can coexist:
+
+```text
+1757.可回收且低脂的产品.mysql.sql
+1757.可回收且低脂的产品.postgresql.sql
+```
+
+SQL files still use the VSCode-compatible `@lc` metadata header, but the code
+markers use SQL comments:
+
+```sql
+/*
+ * @lc app=leetcode.cn id=1757 lang=mysql
+ *
+ * [1757] 可回收且低脂的产品
+ */
+
+-- @lc code=start
+SELECT product_id
+FROM Products
+WHERE low_fats = 'Y' AND recyclable = 'Y';
+-- @lc code=end
+```
+
+## Study Plans
+
+Built-in study plans:
+
+- `sql-free-50` — 高频 SQL 50 题（基础版）
+- `sql-premium-50` — 高频 SQL 50 题（进阶版, Plus）
+
+Examples:
+
+```vim
+:LCPlan
+:LCPlan sql-free-50
+:LCPlan sql-free-50 postgresql
+:LCPlanNext sql-free-50
+:LCPlanProgress sql-free-50
+```
+
+Inside the fzf study-plan picker:
+
+```text
+Enter   open/create selected problem
+ctrl-p  reset selected problem to template
+ctrl-l  switch between MySQL and PostgreSQL
+ctrl-n  open next unsolved problem
+ctrl-r  refresh the plan
+ctrl-b  open the problem/plan in browser
+```
 
 ## Authentication
 

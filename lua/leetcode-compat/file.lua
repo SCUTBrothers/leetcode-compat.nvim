@@ -1,6 +1,7 @@
 local M = {}
 
 local config = require("leetcode-compat.config")
+local language = require("leetcode-compat.language")
 
 --- VSCode LeetCode 文件格式解析
 --- 文件格式示例:
@@ -27,7 +28,8 @@ end
 ---@param filename string
 ---@return number|nil id, string|nil title
 function M.parse_filename(filename)
-  local basename = vim.fn.fnamemodify(filename, ":t:r") -- 去掉路径和扩展名
+  local basename = vim.fn.fnamemodify(filename, ":t:r") -- 去掉路径和最后一个扩展名
+  basename = language.strip_lang_marker(basename)
   local id_str, title = basename:match("^(%d+)%.(.+)$")
   if id_str then
     return tonumber(id_str), title
@@ -113,11 +115,10 @@ function M.scan_workspace()
       -- 从文件名解析 ID 和标题
       local id, title = M.parse_filename(filepath)
       if id then
-        local ext = vim.fn.fnamemodify(filepath, ":e")
         table.insert(files, {
           id = id,
           filepath = filepath,
-          lang = M.ext_to_lang(ext),
+          lang = language.infer_from_filename(filepath),
           title = title,
         })
       end
@@ -145,35 +146,18 @@ local ext_lang_map = {
   php = "php",
   cs = "csharp",
   sh = "bash",
+  sql = "mysql",
 }
 
 function M.ext_to_lang(ext)
-  return ext_lang_map[ext] or ext
+  return ext_lang_map[ext] or language.normalize(ext) or ext
 end
 
 --- 获取语言对应的注释样式
 ---@param lang string
 ---@return {single: string, block_start: string, block_end: string, block_line: string}
 function M.comment_style(lang)
-  local styles = {
-    javascript = { single = "//", block_start = "/*", block_end = " */", block_line = " *" },
-    typescript = { single = "//", block_start = "/*", block_end = " */", block_line = " *" },
-    java = { single = "//", block_start = "/*", block_end = " */", block_line = " *" },
-    cpp = { single = "//", block_start = "/*", block_end = " */", block_line = " *" },
-    c = { single = "//", block_start = "/*", block_end = " */", block_line = " *" },
-    golang = { single = "//", block_start = "/*", block_end = " */", block_line = " *" },
-    rust = { single = "//", block_start = "/*", block_end = " */", block_line = " *" },
-    swift = { single = "//", block_start = "/*", block_end = " */", block_line = " *" },
-    kotlin = { single = "//", block_start = "/*", block_end = " */", block_line = " *" },
-    scala = { single = "//", block_start = "/*", block_end = " */", block_line = " *" },
-    csharp = { single = "//", block_start = "/*", block_end = " */", block_line = " *" },
-    php = { single = "//", block_start = "/*", block_end = " */", block_line = " *" },
-    python3 = { single = "#", block_start = "#", block_end = "#", block_line = "#" },
-    python = { single = "#", block_start = "#", block_end = "#", block_line = "#" },
-    ruby = { single = "#", block_start = "#", block_end = "#", block_line = "#" },
-    bash = { single = "#", block_start = "#", block_end = "#", block_line = "#" },
-  }
-  return styles[lang] or styles.javascript
+  return language.comment_style(lang)
 end
 
 --- 生成新的解题文件内容
@@ -181,6 +165,7 @@ end
 ---@param lang string
 ---@return string content
 function M.generate_file_content(question, lang)
+  lang = language.normalize(lang) or lang
   local style = M.comment_style(lang)
   local id = question.questionFrontendId
   local title = question.translatedTitle or question.title
@@ -230,9 +215,10 @@ end
 ---@param lang string
 ---@return string filename
 function M.build_filename(question, lang)
+  lang = language.normalize(lang) or lang
   local id = question.questionFrontendId
   local title = question.translatedTitle or question.title
-  local ext = config.ext(lang)
+  local ext = language.ext(lang)
 
   -- VSCode LeetCode 中国站格式: {id}.{中文标题}.{ext}
   -- 替换文件名中的非法字符
@@ -240,12 +226,15 @@ function M.build_filename(question, lang)
   -- 空格转为 -
   title = title:gsub("%s+", "-")
 
-  local pattern = config.options.file_pattern
+  local domain = language.domain(lang)
+  local domain_patterns = config.options.file_pattern_by_domain or {}
+  local pattern = domain_patterns[domain] or config.options.file_pattern
   local filename = pattern
     :gsub("${id}", tostring(id))
     :gsub("${cn_title}", title)
     :gsub("${title}", question.title or "")
     :gsub("${slug}", question.titleSlug or "")
+    :gsub("${lang}", lang)
     :gsub("${ext}", ext)
 
   return filename
@@ -256,6 +245,7 @@ end
 ---@param lang string 语言
 ---@param callback fun(filepath: string)
 function M.get_or_create(question, lang, callback)
+  lang = language.normalize(lang) or lang
   local dir = config.options.workspace
   vim.fn.mkdir(dir, "p")
 
@@ -264,7 +254,7 @@ function M.get_or_create(question, lang, callback)
   -- 先查找已有文件
   local existing = M.scan_workspace()
   for _, f in ipairs(existing) do
-    if f.id == id then
+    if f.id == id and f.lang == lang then
       callback(f.filepath)
       return
     end
@@ -283,6 +273,7 @@ end
 ---@param lang string 语言
 ---@param callback fun(filepath: string)
 function M.create_fresh(question, lang, callback)
+  lang = language.normalize(lang) or lang
   local dir = config.options.workspace
   vim.fn.mkdir(dir, "p")
 
@@ -292,7 +283,7 @@ function M.create_fresh(question, lang, callback)
   -- 查找已有文件
   local existing = M.scan_workspace()
   for _, f in ipairs(existing) do
-    if f.id == id then
+    if f.id == id and f.lang == lang then
       vim.fn.writefile(vim.split(content, "\n"), f.filepath)
       callback(f.filepath)
       return
