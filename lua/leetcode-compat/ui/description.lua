@@ -14,12 +14,40 @@ local function as_list(value)
   return type(value) == "table" and value or {}
 end
 
+local function not_null(value)
+  if value == vim.NIL then return nil end
+  return value
+end
+
+local function as_string(value)
+  value = not_null(value)
+  if value == nil then return "" end
+  return tostring(value)
+end
+
+local function first_string(values)
+  for _, value in ipairs(values) do
+    value = not_null(value)
+    if type(value) == "string" and value ~= "" then
+      return value
+    end
+  end
+  for _, value in ipairs(values) do
+    value = not_null(value)
+    if value ~= nil then
+      return tostring(value)
+    end
+  end
+  return ""
+end
+
 --- 简单的 HTML 转 markdown
 --- 使用多遍扫描确保嵌套标签和多行内容正确处理
 ---@param html string
 ---@return string
 local function html_to_markdown(html)
-  if not html or html == "" then return "" end
+  html = not_null(html)
+  if type(html) ~= "string" or html == "" then return "" end
   local text = html
 
   -- 统一换行符
@@ -106,13 +134,13 @@ local function build_content(question)
   local lines = {}
 
   -- 标题
-  local title = question.translatedTitle or question.title or ""
-  local id = question.questionFrontendId or ""
+  local title = first_string({ question.translatedTitle, question.title })
+  local id = as_string(question.questionFrontendId)
   table.insert(lines, "# [" .. id .. "] " .. title)
   table.insert(lines, "")
 
   -- 难度
-  local difficulty = question.difficulty or ""
+  local difficulty = as_string(question.difficulty)
   table.insert(lines, "**难度:** " .. difficulty)
   table.insert(lines, "")
 
@@ -121,19 +149,23 @@ local function build_content(question)
   if #topic_tags > 0 then
     local tags = {}
     for _, tag in ipairs(topic_tags) do
-      table.insert(tags, tag.translatedName or tag.name)
+      local tag_name = first_string({ tag.translatedName, tag.nameTranslated, tag.name })
+      if tag_name ~= "" then table.insert(tags, tag_name) end
     end
-    table.insert(lines, "**标签:** " .. table.concat(tags, ", "))
-    table.insert(lines, "")
+    if #tags > 0 then
+      table.insert(lines, "**标签:** " .. table.concat(tags, ", "))
+      table.insert(lines, "")
+    end
   end
 
   -- 通过率
-  if question.stats then
-    local ok_stats, stats = pcall(vim.json.decode, question.stats)
+  local stats_json = not_null(question.stats)
+  if type(stats_json) == "string" and stats_json ~= "" then
+    local ok_stats, stats = pcall(vim.json.decode, stats_json)
     if ok_stats and stats then
-      local rate = stats.acRate or stats.totalAccepted
+      local rate = not_null(stats.acRate) or not_null(stats.totalAccepted)
       if rate then
-        table.insert(lines, "**通过率:** " .. rate)
+        table.insert(lines, "**通过率:** " .. tostring(rate))
         table.insert(lines, "")
       end
     end
@@ -143,7 +175,7 @@ local function build_content(question)
   table.insert(lines, "")
 
   -- 题目内容
-  local content = question.translatedContent or question.content or ""
+  local content = first_string({ question.translatedContent, question.content })
   local md_content = html_to_markdown(content)
   for line in (md_content .. "\n"):gmatch("(.-)\n") do
     table.insert(lines, line)
