@@ -69,11 +69,15 @@ local function not_null(value)
   return value
 end
 
+local function as_list(value)
+  return type(value) == "table" and value or {}
+end
+
 local function is_database_plan(slug, raw)
   if slug and slug:match("^sql%-") then return true end
-  for _, group in ipairs(raw and raw.planSubGroups or {}) do
-    for _, q in ipairs(group.questions or {}) do
-      for _, tag in ipairs(q.topicTags or {}) do
+  for _, group in ipairs(as_list(raw and raw.planSubGroups)) do
+    for _, q in ipairs(as_list(group.questions)) do
+      for _, tag in ipairs(as_list(q.topicTags)) do
         if tag.slug == "database" or tag.name == "Database" or tag.nameTranslated == "数据库" then
           return true
         end
@@ -98,15 +102,15 @@ function M.normalize(raw, requested_slug)
     groups = {},
   }
 
-  for _, group in ipairs(raw.planSubGroups or {}) do
+  for _, group in ipairs(as_list(raw.planSubGroups)) do
     local normalized_group = {
       slug = group.slug,
       title = not_null(group.name) or group.slug,
       premium_only = group.premiumOnly == true,
-      question_num = group.questionNum or #(group.questions or {}),
+      question_num = group.questionNum or #as_list(group.questions),
       questions = {},
     }
-    for _, q in ipairs(group.questions or {}) do
+    for _, q in ipairs(as_list(group.questions)) do
       table.insert(normalized_group.questions, {
         id = tonumber(q.questionFrontendId),
         question_id = not_null(q.id),
@@ -116,7 +120,7 @@ function M.normalize(raw, requested_slug)
         difficulty = normalize_difficulty(q.difficulty),
         paid_only = q.paidOnly == true,
         status = q.status or "TO_DO",
-        topicTags = q.topicTags or {},
+        topicTags = as_list(q.topicTags),
         domain = domain,
         plan_slug = plan.slug,
         group_slug = normalized_group.slug,
@@ -168,8 +172,8 @@ end
 
 function M.flatten(plan)
   local questions = {}
-  for _, group in ipairs(plan.groups or {}) do
-    for _, q in ipairs(group.questions or {}) do
+  for _, group in ipairs(as_list(plan.groups)) do
+    for _, q in ipairs(as_list(group.questions)) do
       table.insert(questions, q)
     end
   end
@@ -179,9 +183,9 @@ end
 function M.progress(plan)
   local total, done = 0, 0
   local groups = {}
-  for _, group in ipairs(plan.groups or {}) do
+  for _, group in ipairs(as_list(plan.groups)) do
     local g_total, g_done = 0, 0
-    for _, q in ipairs(group.questions or {}) do
+    for _, q in ipairs(as_list(group.questions)) do
       total = total + 1
       g_total = g_total + 1
       if q.status == "SOLVED" or q.status == "AC" or q.status == "ACCEPTED" then

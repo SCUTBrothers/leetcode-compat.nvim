@@ -3,6 +3,10 @@ local M = {}
 local config = require("leetcode-compat.config")
 local language = require("leetcode-compat.language")
 
+local function as_list(value)
+  return type(value) == "table" and value or {}
+end
+
 --- VSCode LeetCode 文件格式解析
 --- 文件格式示例:
 --- /*
@@ -173,12 +177,10 @@ function M.generate_file_content(question, lang)
 
   -- 查找对应语言的代码模板
   local code_template = ""
-  if question.codeSnippets then
-    for _, snippet in ipairs(question.codeSnippets) do
-      if snippet.langSlug == lang then
-        code_template = snippet.code
-        break
-      end
+  for _, snippet in ipairs(as_list(question.codeSnippets)) do
+    if snippet.langSlug == lang then
+      code_template = snippet.code
+      break
     end
   end
 

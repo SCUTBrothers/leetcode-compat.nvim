@@ -10,6 +10,10 @@ local state = {
   win = nil,
 }
 
+local function as_list(value)
+  return type(value) == "table" and value or {}
+end
+
 --- 简单的 HTML 转 markdown
 --- 使用多遍扫描确保嵌套标签和多行内容正确处理
 ---@param html string
@@ -113,9 +117,10 @@ local function build_content(question)
   table.insert(lines, "")
 
   -- 标签
-  if question.topicTags and #question.topicTags > 0 then
+  local topic_tags = as_list(question.topicTags)
+  if #topic_tags > 0 then
     local tags = {}
-    for _, tag in ipairs(question.topicTags) do
+    for _, tag in ipairs(topic_tags) do
       table.insert(tags, tag.translatedName or tag.name)
     end
     table.insert(lines, "**标签:** " .. table.concat(tags, ", "))

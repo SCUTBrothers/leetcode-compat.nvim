@@ -9,6 +9,10 @@ local _cache_ts = 0
 local _problemset_cache = {}
 local CACHE_TTL = 7 * 24 * 3600 -- 7 天（秒）
 
+local function as_list(value)
+  return type(value) == "table" and value or {}
+end
+
 --- 缓存文件路径
 local function cache_path()
   local cookie_dir = vim.fn.fnamemodify(config.options.cookie_path, ":h")
@@ -131,7 +135,7 @@ function M.fetch_problems(callback)
       return
     end
     local problems = {}
-    for _, q in ipairs(questions) do
+    for _, q in ipairs(as_list(questions)) do
       local id = tonumber(q.questionFrontendId)
       if id then
         table.insert(problems, {
@@ -375,7 +379,7 @@ function M.fetch_problemset(opts, callback)
         callback("Invalid response: no problemsetQuestionList")
         return
       end
-      for _, q in ipairs(list.questions or {}) do
+      for _, q in ipairs(as_list(list.questions)) do
         local id = tonumber(q.frontendQuestionId)
         if id then
           table.insert(all, {

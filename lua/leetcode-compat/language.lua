@@ -180,6 +180,10 @@ local preferred_by_domain = {
   database = { "mysql", "postgresql", "mssql", "oraclesql", "pythondata" },
 }
 
+local function as_list(value)
+  return type(value) == "table" and value or {}
+end
+
 function M.normalize(lang)
   if not lang or lang == vim.NIL or lang == "" or type(lang) ~= "string" then return nil end
   return aliases[lang] or lang
@@ -273,7 +277,7 @@ end
 local function snippet_langs(question)
   local langs = {}
   local set = {}
-  for _, snippet in ipairs(question and question.codeSnippets or {}) do
+  for _, snippet in ipairs(as_list(question and question.codeSnippets)) do
     local lang = M.normalize(snippet.langSlug)
     if lang and not set[lang] then
       table.insert(langs, lang)
@@ -313,7 +317,7 @@ function M.is_database_question(question, context)
   if context and context.domain == "database" then return true end
   if context and context.plan_slug and context.plan_slug:match("^sql%-") then return true end
 
-  for _, tag in ipairs(question and question.topicTags or {}) do
+  for _, tag in ipairs(as_list(question and question.topicTags)) do
     local slug = tag.slug
     local name = tag.name or tag.translatedName or tag.nameTranslated
     if slug == "database" or name == "Database" or name == "数据库" then
