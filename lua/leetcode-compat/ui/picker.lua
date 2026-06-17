@@ -11,7 +11,8 @@ local language = require("leetcode-compat.language")
 local function format_entry(problem, local_ids)
   local mark = local_ids[problem.id] and "✓" or " "
   local domain = problem.domain == "database" and "SQL" or "Code"
-  return string.format("[%s] %4d | %-6s | %-4s | %s", mark, problem.id, problem.difficulty, domain, problem.title)
+  local plus = (problem.paid_only or problem.paidOnly or problem.isPaidOnly) and " [Plus]" or ""
+  return string.format("[%s] %4d | %-6s | %-4s | %s%s", mark, problem.id, problem.difficulty, domain, problem.title, plus)
 end
 
 --- 通过题目 ID 查找并打开本地文件
