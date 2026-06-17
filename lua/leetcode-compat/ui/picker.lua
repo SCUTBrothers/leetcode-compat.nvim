@@ -154,6 +154,17 @@ local function parse_id_from_entry(line)
   return tonumber(line:match("%]%s*(%d+)"))
 end
 
+local function fzf_navigation_keymap()
+  return {
+    fzf = {
+      ["ctrl-n"] = "down",
+      ["ctrl-j"] = "down",
+      ["ctrl-p"] = "up",
+      ["ctrl-k"] = "up",
+    },
+  }
+end
+
 local function fetch_problems_for_domain(domain, callback)
   if domain == "database" then
     api.fetch_problemset({ tag = "database" }, callback)
@@ -240,13 +251,14 @@ function M.open(domain, lang)
 
     fzf.fzf_exec(entries, {
       prompt = "LeetCode> ",
+      keymap = fzf_navigation_keymap(),
       winopts = {
         height = 0.8,
         width = 0.8,
         preview = { hidden = "hidden" },
       },
       fzf_opts = {
-        ["--header"] = "enter: 打开 | ctrl-p: 练习模式 | ctrl-l: 选择语言",
+        ["--header"] = "enter: 打开 | alt-p: 练习模式 | ctrl-l: 选择语言 | ctrl-n/ctrl-p: 移动",
       },
       actions = {
         ["default"] = function(selected)
@@ -258,7 +270,7 @@ function M.open(domain, lang)
           end
           fetch_and_create(id, problems, lang)
         end,
-        ["ctrl-p"] = function(selected)
+        ["alt-p"] = function(selected)
           if not selected or #selected == 0 then return end
           local id = parse_id_from_entry(selected[1])
           if not id then return end

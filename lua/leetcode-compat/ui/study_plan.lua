@@ -23,6 +23,17 @@ local function format_question_entry(q, lang)
   return string.format("[%s] %4d | %-6s | %-10s | %-5s | %s", status, q.id, q.difficulty, lang or "", paid, q.title)
 end
 
+local function fzf_navigation_keymap()
+  return {
+    fzf = {
+      ["ctrl-n"] = "down",
+      ["ctrl-j"] = "down",
+      ["ctrl-p"] = "up",
+      ["ctrl-k"] = "up",
+    },
+  }
+end
+
 local function show_premium_empty(plan)
   local msg = string.format("LeetCode: %s 是 Plus 学习计划，当前账号未返回题目分组", plan.title or plan.slug)
   vim.notify(msg, vim.log.levels.WARN)
@@ -59,6 +70,7 @@ function M.list()
 
   fzf.fzf_exec(entries, {
     prompt = "LCPlan> ",
+    keymap = fzf_navigation_keymap(),
     winopts = {
       height = 0.6,
       width = 0.8,
@@ -135,20 +147,21 @@ function M.open(slug, lang, opts)
 
     fzf.fzf_exec(entries, {
       prompt = "LCPlan " .. slug .. "> ",
+      keymap = fzf_navigation_keymap(),
       winopts = {
         height = 0.8,
         width = 0.9,
         preview = { hidden = "hidden" },
       },
       fzf_opts = {
-        ["--header"] = string.format("%s | lang=%s | enter: 打开 | ctrl-p: 练习 | ctrl-l: MySQL/PostgreSQL | ctrl-n: 下一题 | ctrl-r: 刷新 | ctrl-b: 浏览器", plan.title, plan_lang),
+        ["--header"] = string.format("%s | lang=%s | enter: 打开 | alt-p: 练习 | ctrl-l: MySQL/PostgreSQL | alt-n: 下一题 | ctrl-r: 刷新 | ctrl-b: 浏览器 | ctrl-n/ctrl-p: 移动", plan.title, plan_lang),
       },
       actions = {
         ["default"] = function(selected)
           if not selected or #selected == 0 then return end
           open_question(by_entry[selected[1]], plan_lang, false)
         end,
-        ["ctrl-p"] = function(selected)
+        ["alt-p"] = function(selected)
           if not selected or #selected == 0 then return end
           open_question(by_entry[selected[1]], plan_lang, true)
         end,
@@ -156,7 +169,7 @@ function M.open(slug, lang, opts)
           local next_lang = plan_lang == "postgresql" and "mysql" or "postgresql"
           M.open(slug, next_lang)
         end,
-        ["ctrl-n"] = function()
+        ["alt-n"] = function()
           M.next(slug, plan_lang)
         end,
         ["ctrl-r"] = function()

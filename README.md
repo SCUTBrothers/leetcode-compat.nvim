@@ -200,11 +200,13 @@ Inside the fzf study-plan picker:
 
 ```text
 Enter   open/create selected problem
-ctrl-p  reset selected problem to template
+alt-p   reset selected problem to template
 ctrl-l  switch between MySQL and PostgreSQL
-ctrl-n  open next unsolved problem
+alt-n   open next unsolved problem
 ctrl-r  refresh the plan
 ctrl-b  open the problem/plan in browser
+ctrl-n  move down
+ctrl-p  move up
 ```
 
 ## Authentication
