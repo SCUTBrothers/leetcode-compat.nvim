@@ -25,6 +25,11 @@ local function as_string(value)
   return tostring(value)
 end
 
+local function as_boolean(value)
+  value = not_null(value)
+  return value == true
+end
+
 local function first_string(values)
   for _, value in ipairs(values) do
     value = not_null(value)
@@ -177,8 +182,21 @@ local function build_content(question)
   -- 题目内容
   local content = first_string({ question.translatedContent, question.content })
   local md_content = html_to_markdown(content)
-  for line in (md_content .. "\n"):gmatch("(.-)\n") do
-    table.insert(lines, line)
+  if md_content ~= "" then
+    for line in (md_content .. "\n"):gmatch("(.-)\n") do
+      table.insert(lines, line)
+    end
+  else
+    local slug = as_string(question.titleSlug)
+    if as_boolean(question.isPaidOnly) then
+      table.insert(lines, "题目描述暂不可用：该题是 LeetCode Plus 题，当前账号或接口没有返回题目正文。")
+    else
+      table.insert(lines, "题目描述暂不可用：LeetCode 接口没有返回题目正文。")
+    end
+    if slug ~= "" then
+      table.insert(lines, "")
+      table.insert(lines, "链接: " .. config.base_url() .. "/problems/" .. slug .. "/")
+    end
   end
 
   return lines

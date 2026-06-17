@@ -310,6 +310,7 @@ function M.fetch_question(slug, callback)
         content
         translatedContent
         difficulty
+        isPaidOnly
         topicTags { name slug translatedName }
         codeSnippets { lang langSlug code }
         exampleTestcaseList
